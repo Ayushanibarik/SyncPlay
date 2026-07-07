@@ -30,6 +30,20 @@ export default function Theater({ sessionConfig }: TheaterProps) {
     const [incomingStream, setIncomingStream] = useState<MediaStream | null>(null);
 
     const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+    const hostStreamRef = useRef<MediaStream | null>(null);
+    const viewerHasVideoMapRef = useRef<Map<string, boolean>>(new Map());
+
+    const getHostStream = () => {
+        if (!hostStreamRef.current && videoRef.current) {
+            const videoEl = videoRef.current as any;
+            if (videoEl.captureStream) {
+                hostStreamRef.current = videoEl.captureStream();
+            } else if (videoEl.mozCaptureStream) {
+                hostStreamRef.current = videoEl.mozCaptureStream();
+            }
+        }
+        return hostStreamRef.current;
+    };
 
     const getOrCreatePeerConnection = (peerId: string) => {
         if (peerConnectionsRef.current.has(peerId)) {
@@ -76,16 +90,9 @@ export default function Theater({ sessionConfig }: TheaterProps) {
 
             // If OWNER, stream new tracks to all existing peer connections
             if (sessionConfig.role === Role.OWNER) {
+                hostStreamRef.current = null; // Clear cached stream to capture new file
                 setTimeout(() => {
-                    let stream: MediaStream | null = null;
-                    if (videoRef.current) {
-                        const videoEl = videoRef.current as any;
-                        if (videoEl.captureStream) {
-                            stream = videoEl.captureStream();
-                        } else if (videoEl.mozCaptureStream) {
-                            stream = videoEl.mozCaptureStream();
-                        }
-                    }
+                    const stream = getHostStream();
                     if (stream) {
                         const s = stream;
                         peerConnectionsRef.current.forEach((pc, viewerId) => {
@@ -150,11 +157,12 @@ export default function Theater({ sessionConfig }: TheaterProps) {
                     addSystemMessage("Session created. Share the link below with your friends!");
                 } else {
                     await session.connect(sessionConfig.roomCode);
-                    // Send JOIN message to Host
+                    // Send JOIN message to Host with information on whether we have a local video file
                     await session.send({
                         payload: {
                             type: "JOIN",
-                            nickname: sessionConfig.nickname
+                            nickname: sessionConfig.nickname,
+                            hasVideo: !!(sessionConfig.videoInfo && sessionConfig.videoInfo.fileObj)
                         }
                     }, sessionConfig.roomCode);
 
@@ -169,6 +177,8 @@ export default function Theater({ sessionConfig }: TheaterProps) {
                         // Register participant
                         participantsSetRef.current.add(senderId);
                         participantsNamesMapRef.current.set(senderId, nickname);
+                        // Record whether this viewer has a local video file
+                        viewerHasVideoMapRef.current.set(senderId, !!envelope.payload.hasVideo);
                         
                         const list = [sessionConfig.nickname, ...Array.from(participantsNamesMapRef.current.values())];
                         setParticipants(list);
@@ -208,17 +218,9 @@ export default function Theater({ sessionConfig }: TheaterProps) {
 
                         // Set up WebRTC peer connection to stream Host's media to new Viewer
                         const pc = getOrCreatePeerConnection(senderId);
-                        let stream: MediaStream | null = null;
-                        if (videoRef.current) {
-                            const videoEl = videoRef.current as any;
-                            if (videoEl.captureStream) {
-                                stream = videoEl.captureStream();
-                            } else if (videoEl.mozCaptureStream) {
-                                stream = videoEl.mozCaptureStream();
-                            }
-                        }
+                        const stream = getHostStream();
                         if (stream) {
-                            stream.getTracks().forEach(track => pc.addTrack(track, stream!));
+                            stream.getTracks().forEach(track => pc.addTrack(track, stream));
                         }
 
                         pc.createOffer().then(async (offer) => {
@@ -263,6 +265,13 @@ export default function Theater({ sessionConfig }: TheaterProps) {
                             setTimeout(() => { isSyncingRef.current = false; }, 300);
                         }
                     } else if (type === "STATE_CHANGE" && sessionConfig.role === Role.OWNER) {
+                        // Only allow state changes from viewers who actually have a local video file loaded!
+                        // If the viewer is in WebRTC stream mode, discard their playback control requests.
+                        const hasVideo = viewerHasVideoMapRef.current.get(senderId);
+                        if (!hasVideo) {
+                            return;
+                        }
+
                         // Viewer requested play/pause/seek state change
                         if (videoRef.current) {
                             isSyncingRef.current = true;
