@@ -19,6 +19,9 @@ wss.on('connection', (ws) => {
             const { type, roomId, clientId, nickname, payload, destinationId } = data;
 
             switch (type) {
+                case 'PING':
+                    ws.send(JSON.stringify({ type: 'PONG' }));
+                    break;
                 case 'JOIN':
                     // Join a room or create it
                     ws.roomId = roomId;

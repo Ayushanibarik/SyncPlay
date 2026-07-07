@@ -27,6 +27,44 @@ interface ChatMessage {
 export default function Theater({ sessionConfig }: TheaterProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [localVideoInfo, setLocalVideoInfo] = useState(sessionConfig.videoInfo);
+    const [incomingStream, setIncomingStream] = useState<MediaStream | null>(null);
+
+    const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+
+    const getOrCreatePeerConnection = (peerId: string) => {
+        if (peerConnectionsRef.current.has(peerId)) {
+            return peerConnectionsRef.current.get(peerId)!;
+        }
+
+        const pc = new RTCPeerConnection({
+            iceServers: [
+                { urls: "stun:stun.l.google.com:19302" },
+                { urls: "stun:stun1.l.google.com:19302" }
+            ]
+        });
+
+        pc.onicecandidate = (event) => {
+            if (event.candidate && sessionRef.current) {
+                sessionRef.current.send({
+                    payload: {
+                        type: "WEBRTC_ICE",
+                        candidate: event.candidate
+                    }
+                }, peerId);
+            }
+        };
+
+        if (sessionConfig.role === Role.VIEWER) {
+            pc.ontrack = (event) => {
+                if (event.streams && event.streams[0]) {
+                    setIncomingStream(event.streams[0]);
+                }
+            };
+        }
+
+        peerConnectionsRef.current.set(peerId, pc);
+        return pc;
+    };
 
     const handleLocalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
@@ -35,6 +73,37 @@ export default function Theater({ sessionConfig }: TheaterProps) {
             const { name } = file;
             const fileObj = URL.createObjectURL(file);
             setLocalVideoInfo({ fileObj, name });
+
+            // If OWNER, stream new tracks to all existing peer connections
+            if (sessionConfig.role === Role.OWNER) {
+                setTimeout(() => {
+                    let stream: MediaStream | null = null;
+                    if (videoRef.current) {
+                        const videoEl = videoRef.current as any;
+                        if (videoEl.captureStream) {
+                            stream = videoEl.captureStream();
+                        } else if (videoEl.mozCaptureStream) {
+                            stream = videoEl.mozCaptureStream();
+                        }
+                    }
+                    if (stream) {
+                        const s = stream;
+                        peerConnectionsRef.current.forEach((pc, viewerId) => {
+                            pc.getSenders().forEach(sender => pc.removeTrack(sender));
+                            s.getTracks().forEach(track => pc.addTrack(track, s));
+                            pc.createOffer().then(async (offer) => {
+                                await pc.setLocalDescription(offer);
+                                sessionRef.current?.send({
+                                    payload: {
+                                        type: "WEBRTC_OFFER",
+                                        offer
+                                    }
+                                }, viewerId);
+                            });
+                        });
+                    }
+                }, 1000);
+            }
         }
     };
     const sessionRef = useRef<AbstractSession | null>(null);
@@ -136,6 +205,31 @@ export default function Theater({ sessionConfig }: TheaterProps) {
                                 }, viewerId);
                             }
                         });
+
+                        // Set up WebRTC peer connection to stream Host's media to new Viewer
+                        const pc = getOrCreatePeerConnection(senderId);
+                        let stream: MediaStream | null = null;
+                        if (videoRef.current) {
+                            const videoEl = videoRef.current as any;
+                            if (videoEl.captureStream) {
+                                stream = videoEl.captureStream();
+                            } else if (videoEl.mozCaptureStream) {
+                                stream = videoEl.mozCaptureStream();
+                            }
+                        }
+                        if (stream) {
+                            stream.getTracks().forEach(track => pc.addTrack(track, stream!));
+                        }
+
+                        pc.createOffer().then(async (offer) => {
+                            await pc.setLocalDescription(offer);
+                            session.send({
+                                payload: {
+                                    type: "WEBRTC_OFFER",
+                                    offer
+                                }
+                            }, senderId);
+                        }).catch(err => console.error("Error creating WebRTC offer:", err));
                     } else if (type === "STATE" && sessionConfig.role === Role.VIEWER) {
                         setRoomName(rName);
                         if (parts) setParticipants(parts);
@@ -207,6 +301,33 @@ export default function Theater({ sessionConfig }: TheaterProps) {
                                 }
                             });
                         }
+                    } else if (type === "WEBRTC_OFFER") {
+                        const pc = getOrCreatePeerConnection(senderId);
+                        pc.setRemoteDescription(new RTCSessionDescription(envelope.payload.offer))
+                            .then(() => {
+                                pc.createAnswer().then(async (answer) => {
+                                    await pc.setLocalDescription(answer);
+                                    session.send({
+                                        payload: {
+                                            type: "WEBRTC_ANSWER",
+                                            answer
+                                        }
+                                    }, senderId);
+                                });
+                            })
+                            .catch(err => console.error("Error setting remote offer:", err));
+                    } else if (type === "WEBRTC_ANSWER") {
+                        const pc = peerConnectionsRef.current.get(senderId);
+                        if (pc) {
+                            pc.setRemoteDescription(new RTCSessionDescription(envelope.payload.answer))
+                                .catch(err => console.error("Error setting remote answer:", err));
+                        }
+                    } else if (type === "WEBRTC_ICE") {
+                        const pc = peerConnectionsRef.current.get(senderId);
+                        if (pc) {
+                            pc.addIceCandidate(new RTCIceCandidate(envelope.payload.candidate))
+                                .catch(err => console.warn("Error adding ICE candidate:", err));
+                        }
                     }
                 };
 
@@ -221,6 +342,8 @@ export default function Theater({ sessionConfig }: TheaterProps) {
         return () => {
             active = false;
             sessionRef.current?.destroy();
+            peerConnectionsRef.current.forEach(pc => pc.close());
+            peerConnectionsRef.current.clear();
         };
     }, []);
 
@@ -270,6 +393,13 @@ export default function Theater({ sessionConfig }: TheaterProps) {
             }
         };
     }, [roomCode, localVideoInfo]);
+
+    // Attach incoming WebRTC stream to Viewer's video player
+    useEffect(() => {
+        if (videoRef.current && incomingStream) {
+            videoRef.current.srcObject = incomingStream;
+        }
+    }, [incomingStream, localVideoInfo]);
 
     const addSystemMessage = (text: string) => {
         setMessages(prev => [
@@ -341,6 +471,8 @@ export default function Theater({ sessionConfig }: TheaterProps) {
             <div className="video-pane">
                 {localVideoInfo ? (
                     <video ref={videoRef} src={localVideoInfo.fileObj} controls></video>
+                ) : incomingStream ? (
+                    <video ref={videoRef} autoPlay controls style={{ width: "100%", height: "100%" }}></video>
                 ) : (
                     <div className="no-video-placeholder">
                         <span className="placeholder-icon">🎬</span>

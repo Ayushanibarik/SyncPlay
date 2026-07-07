@@ -6,6 +6,7 @@ export default class WebSocketSession extends AbstractSession {
     private ws: WebSocket | null = null;
     private myId = '';
     private roomCode = '';
+    private heartbeatInterval: any = null;
     
     // Deployed Hugging Face Space URL for our signaling backend
     private serverUrl = 'wss://aaaaaaayush-syncplay-backend.hf.space';
@@ -53,6 +54,7 @@ export default class WebSocketSession extends AbstractSession {
                         nickname: this.name
                     }));
                     this.connected = true;
+                    this.startHeartbeat();
                     resolve(true);
                 };
 
@@ -60,6 +62,10 @@ export default class WebSocketSession extends AbstractSession {
                     try {
                         const data = JSON.parse(event.data);
                         
+                        if (data.type === 'PONG') {
+                            return; // Heartbeat response, ignore
+                        }
+
                         if (data.type === 'PEER_JOIN') {
                             this.onEnvelope({
                                 senderId: data.senderId,
@@ -135,11 +141,13 @@ export default class WebSocketSession extends AbstractSession {
 
                 ws.onerror = (err) => {
                     this.connected = false;
+                    this.stopHeartbeat();
                     reject(err);
                 };
 
                 ws.onclose = () => {
                     this.connected = false;
+                    this.stopHeartbeat();
                 };
             } catch (e) {
                 reject(e);
@@ -212,7 +220,24 @@ export default class WebSocketSession extends AbstractSession {
         return true;
     }
 
+    private startHeartbeat() {
+        this.stopHeartbeat();
+        this.heartbeatInterval = setInterval(() => {
+            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                this.ws.send(JSON.stringify({ type: 'PING' }));
+            }
+        }, 15000);
+    }
+
+    private stopHeartbeat() {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
+    }
+
     destroy() {
+        this.stopHeartbeat();
         this.ws?.close();
         this.connected = false;
     }
