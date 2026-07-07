@@ -7,8 +7,8 @@ export default class WebSocketSession extends AbstractSession {
     private myId = '';
     private roomCode = '';
     
-    // Deployed Render service URL for our custom signaling backend
-    private serverUrl = 'wss://syncplay-backend.onrender.com';
+    // Deployed Hugging Face Space URL for our signaling backend
+    private serverUrl = 'wss://aaaaaaayush-syncplay-backend.hf.space';
 
     constructor() {
         super();

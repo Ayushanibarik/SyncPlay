@@ -5,3 +5,4 @@ tales-tester/tests/CHARADE_1953_512kb.mp4
 tales-tester/tests/CHARADE_1953.ogv
 
 app/package-lock.json
+node_modules/
