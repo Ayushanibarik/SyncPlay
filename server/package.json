@@ -1,0 +1,12 @@
+{
+  "name": "syncplay-backend",
+  "version": "1.0.0",
+  "description": "Custom WebSocket signaling server for SyncPlay watch parties",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

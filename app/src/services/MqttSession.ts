@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
-//import * as mqtt from 'mqtt/dist/mqtt.min';
-import * as mqtt from 'mqtt';
+// @ts-ignore
+import mqtt from 'mqtt/dist/mqtt.min';
 
 import AbstractSession from './AbstractSession.ts';
 import Envelope, { Envelopes } from './Envelope.ts';
@@ -11,10 +11,9 @@ export default class MqttSession extends AbstractSession {
      * Some public broker.
      * HiveMQ
      */
-    static readonly MQTT_BROKER_HOST = 'broker.mqttdashboard.com';
+    static readonly MQTT_BROKER_HOST = 'broker.emqx.io';
 
     private myId = '';
-    private sessionKey = '';
 
     // MQTT and MQTT.js stuff
     private static readonly EXACTLY_ONCE = 2;
@@ -46,7 +45,7 @@ export default class MqttSession extends AbstractSession {
      */
     private genAndSetId() {
         const uuid = uuidv4();
-        const mqttClientId = `mqttjs/pp/${uuid}`;
+        const mqttClientId = 'pp_' + uuid.replace(/-/g, '').substring(0, 15);
 
         this.myId = uuid;
         this.mqttOptions.clientId = mqttClientId;
@@ -112,10 +111,9 @@ export default class MqttSession extends AbstractSession {
         // TODO: Remove existing subscription.
         // Kinda important if the user joins the wrong room (topic).
 
-        this.sessionKey = sessionKey;
         this.mqttTopic = `room/${sessionKey}`;
-        this.client!.subscribe(this.mqttTopic, { qos: this.mqttQos }, _err => { });
-        this.client!.on("message", (topic, message) => {
+        this.client!.subscribe(this.mqttTopic, { qos: this.mqttQos }, (_err: any) => { });
+        this.client!.on("message", (_topic: any, message: any) => {
             this.onRawMessage(message.toString());
         })
 
@@ -127,20 +125,29 @@ export default class MqttSession extends AbstractSession {
      * Ensure connected to the broker.
      */
     private async ensureConnected() {
-        const mqttUrl = 'mqtt://' + MqttSession.MQTT_BROKER_HOST;
+        const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+        const mqttUrl = isHttps 
+            ? 'wss://' + MqttSession.MQTT_BROKER_HOST + ':8084/mqtt'
+            : 'ws://' + MqttSession.MQTT_BROKER_HOST + ':8083/mqtt';
 
-        /*
-        const client = mqtt.connect(mqttUrl, this.mqttOptions);
-        client.on('connect', () => {
-            client.subscribe('presence', (err) => {
-                if (!err) {
-                client.publish("presence", "Hello mqtt");
-                }
+        let client: any;
+        if (typeof (mqtt as any).connectAsync === 'function') {
+            client = await (mqtt as any).connectAsync(mqttUrl, this.mqttOptions);
+        } else {
+            client = mqtt.connect(mqttUrl, this.mqttOptions);
+            await new Promise<void>((resolve, reject) => {
+                const onConnect = () => {
+                    client.off('error', onError);
+                    resolve();
+                };
+                const onError = (err: any) => {
+                    client.off('connect', onConnect);
+                    reject(err);
+                };
+                client.once('connect', onConnect);
+                client.once('error', onError);
             });
-        });
-        */
-
-        const client = await mqtt.connectAsync(mqttUrl, this.mqttOptions);
+        }
 
         this.client = client;
     }

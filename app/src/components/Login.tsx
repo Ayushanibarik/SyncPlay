@@ -7,19 +7,23 @@ const rolesOptions = [
     {value: Role.VIEWER, content: 'Join'},
 ];
 
-export default function Login({setVideoInfo}: any) {
+export default function Login({setSessionConfig}: any) {
     const [formData, setFormData] = useState(function getInitialFormData() {
+        const params = new URLSearchParams(window.location.search);
+        const codeFromUrl = params.get('code') || '';
+        const roleFromUrl = codeFromUrl ? Role.VIEWER : '';
+
         return {
             /**
              * If the current user is OWNER, its value is read-only and is automatically set to `remoteKey`.
              * Can be manually set by VIEWER.
              * Though try to automatically set from the URL if the param exists.
              */
-            roomCode: '',
+            roomCode: codeFromUrl,
     
             // See rolesOptions
             // if roomCode was found in the URL, assume we are viewer; else, we are owner.
-            role: '',
+            role: roleFromUrl,
     
             /**
              * validated by the Owner, can't be changed (for now).
@@ -55,7 +59,13 @@ export default function Login({setVideoInfo}: any) {
         e.preventDefault();
 
         console.info(formData);
-        setVideoInfo(info.videoInfo);
+        setSessionConfig({
+            role: formData.role,
+            nickname: formData.nickname,
+            roomCode: formData.roomCode,
+            roomName: formData.roomName || formData.videoInfo?.name || "Some watch party",
+            videoInfo: formData.videoInfo
+        });
     }
 
     function handleChange(e: any) {
@@ -89,71 +99,109 @@ export default function Login({setVideoInfo}: any) {
     }
 
     return (
-        <form onSubmit={handleSubmit}>
-            <h1>Peer Party</h1>
+        <form onSubmit={handleSubmit} className="bento-container">
+            {/* Card 1: Brand / Title */}
+            <div className="bento-card bento-card--brand">
+                <div className="brand-logo">🍿</div>
+                <h1 className="brand-title">SyncPlay</h1>
+                <p className="brand-subtitle">Watch local videos in sync with friends.</p>
+            </div>
 
-            <label className="debug">
-                My PeerJS ID
-                <input id="myRemoteKey" readOnly={true} />
-            </label>
+            {/* Card 2: Role Selector */}
+            <div className="bento-card bento-card--role">
+                <span className="bento-label">Your Role</span>
+                <RadioCardGroup
+                    name="role"
+                    radios={rolesOptions}
+                    onSelected={handleRoleSelect}
+                />
+            </div>
 
-            <hr />
-
-            <RadioCardGroup
-                name="role"
-                radios={rolesOptions}
-                onSelected={handleRoleSelect}
-            />
-
-            <hr />
-
-            <label>
-                Room code
-                <input id="roomCode"
-                    name="roomCode" value={formData.roomCode} onChange={handleChange}
-                    readOnly={formData.role === Role.OWNER} />
-            </label>
-
-            <hr />
-
-            <label>
-                Nickname
-                <input id="nickname"
-                    minLength={1}
-                    name="nickname" value={formData.nickname} onChange={handleChange}
+            {/* Card 3: Nickname */}
+            <div className="bento-card bento-card--nickname">
+                <label htmlFor="nickname" className="bento-label">Nickname</label>
+                <div className="nickname-input-wrapper">
+                    <input 
+                        id="nickname"
+                        minLength={1}
+                        name="nickname" 
+                        value={formData.nickname} 
+                        onChange={handleChange}
+                        className="bento-input"
+                        placeholder="Enter your nickname"
                     />
-                <span>
-                    Show an inline loading indicator ("Validating...")
-                </span>
-            </label>
+                    {formData.nicknameIsValidating && (
+                        <span className="inline-loader">Validating...</span>
+                    )}
+                </div>
+            </div>
 
-            <hr />
-
-            <label>
-                Video
-                {/* XXX: It should accept only videos HTML can play. */}
-                <input id="videofile" type="file" accept="video/*" onChange={handleFileChange} />
-            </label>
-
-            <hr />
-
-            <label>
-                Room name
-                {/*
-                    - not required.
-                    - maybe only the OWNER should set it.
-                    - its placeholder is filename.
-                    - if its value is empty, it automatically gets set to filename when submitting.
-                */}
-                <input id="roomName"
-                    placeholder={formData.videoInfo?.name || "Some watch party"}
-                    name="roomName" value={formData.roomName} onChange={handleChange}
+            {/* Card 4: Video Selector */}
+            <div className="bento-card bento-card--video">
+                <label className="bento-label">Select Video</label>
+                <div className="file-upload-wrapper">
+                    <input 
+                        id="videofile" 
+                        type="file" 
+                        accept="video/*" 
+                        onChange={handleFileChange} 
+                        className="hidden-file-input"
                     />
-            </label>
+                    <label htmlFor="videofile" className="file-upload-trigger">
+                        <span className="upload-icon">🎬</span>
+                        <span className="file-name-display">
+                            {formData.videoInfo?.name || "No file chosen"}
+                        </span>
+                        <span className="upload-btn-text">Browse Files</span>
+                    </label>
+                </div>
+            </div>
 
-            <hr />
+            {/* Card 5: Room Settings */}
+            <div className={`bento-card bento-card--room-settings ${!formData.role ? 'bento-card--disabled' : ''}`}>
+                {!formData.role ? (
+                    <>
+                        <span className="bento-label">Connection</span>
+                        <input 
+                            className="bento-input bento-input--readonly" 
+                            placeholder="Select role first" 
+                            disabled 
+                        />
+                    </>
+                ) : formData.role === Role.OWNER ? (
+                    <>
+                        <label htmlFor="roomName" className="bento-label">Room Name</label>
+                        <input 
+                            id="roomName"
+                            placeholder={formData.videoInfo?.name || "Some watch party"}
+                            name="roomName" 
+                            value={formData.roomName} 
+                            onChange={handleChange}
+                            className="bento-input"
+                        />
+                    </>
+                ) : (
+                    <>
+                        <label htmlFor="roomCode" className="bento-label">Room Code</label>
+                        <input 
+                            id="roomCode"
+                            name="roomCode" 
+                            value={formData.roomCode} 
+                            onChange={handleChange}
+                            className="bento-input"
+                            placeholder="Enter Room Code"
+                        />
+                    </>
+                )}
+            </div>
 
-            <button aria-label="start" disabled={!canStart}>Start</button>
+            {/* Card 6: Start Button */}
+            <div className="bento-card bento-card--action">
+                <button aria-label="start" disabled={!canStart} className="start-btn">
+                    <span>Start Session</span>
+                    <span className="btn-arrow">→</span>
+                </button>
+            </div>
         </form>
     );
 

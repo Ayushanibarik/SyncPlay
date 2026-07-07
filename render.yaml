@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: syncplay-backend
+    env: node
+    buildCommand: npm install
+    startCommand: node index.js
+    rootDir: server

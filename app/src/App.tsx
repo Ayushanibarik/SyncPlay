@@ -3,21 +3,17 @@ import Login from "./components/Login";
 import Theater from "./components/Theater";
 
 function App() {
-
-  // WIP
-  const [videoInfo, setVideoInfo] = useState<any>(null);
-  const started = !!videoInfo;
+  const [sessionConfig, setSessionConfig] = useState<any>(null);
 
   return (
     <>
-      {started
-        ?
-        <Theater videoInfo={videoInfo}/>
-        :
-        <Login setVideoInfo={setVideoInfo} />
-      } 
+      {sessionConfig ? (
+        <Theater sessionConfig={sessionConfig} />
+      ) : (
+        <Login setSessionConfig={setSessionConfig} />
+      )}
     </>
-  )
+  );
 }
 
 export default App

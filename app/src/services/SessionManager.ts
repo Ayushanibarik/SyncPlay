@@ -1,16 +1,15 @@
 import { AbstractSession } from ".";
-import MqttSession from "./MqttSession.ts";
+import WebSocketSession from "./WebSocketSession.ts";
 
-// XXX: Naming: Transport, Connection, Session, Socket, Channel, Room, Link, or what?
 export default class SessionManager {
-    static defaultImpl = 'MQTT';
+    static defaultImpl = 'WEBSOCKET';
 
-    static create({name}): AbstractSession {
+    static create({name}: {name: string}): AbstractSession {
         let instance;
 
         switch(SessionManager.defaultImpl) {
-            case 'MQTT':
-                instance = new MqttSession();
+            case 'WEBSOCKET':
+                instance = new WebSocketSession();
                 break;
             default:
                 throw new Error(`Unknown session type '${SessionManager.defaultImpl}'`);

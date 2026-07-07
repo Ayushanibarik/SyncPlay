@@ -18,7 +18,7 @@ export class Envelopes {
     static isValid(str: string) {
         // It's valid if it's a valid JSON.
         try {
-            const parsed = JSON.parse(str);
+            JSON.parse(str);
             return true;
         } catch (ignoredErr) {
             return false;
