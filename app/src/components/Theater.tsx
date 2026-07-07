@@ -234,8 +234,8 @@ export default function Theater({ sessionConfig }: TheaterProps) {
                         setRoomName(rName);
                         if (parts) setParticipants(parts);
 
-                        // Sync local video
-                        if (videoRef.current) {
+                        // Sync local video only if we have a local file loaded
+                        if (localVideoInfo && localVideoInfo.fileObj && videoRef.current) {
                             isSyncingRef.current = true;
                             videoRef.current.currentTime = position;
                             if (paused) {
@@ -248,6 +248,9 @@ export default function Theater({ sessionConfig }: TheaterProps) {
 
                         addSystemMessage(`Joined watch party: "${rName}"`);
                     } else if (type === "SYNC" && sessionConfig.role === Role.VIEWER) {
+                        // Only sync if we are playing our own local media file
+                        if (!localVideoInfo || !localVideoInfo.fileObj) return;
+
                         // Sync local video state from Host
                         if (videoRef.current) {
                             isSyncingRef.current = true;
@@ -383,6 +386,14 @@ export default function Theater({ sessionConfig }: TheaterProps) {
     };
 
     useEffect(() => {
+        const isOwner = sessionConfig.role === Role.OWNER;
+        const hasLocalVideo = !!(localVideoInfo && localVideoInfo.fileObj);
+
+        // Only bind event listeners if Host (Owner) or Viewer playing their own local file
+        if (!isOwner && !hasLocalVideo) {
+            return;
+        }
+
         const video = videoRef.current;
         if (video) {
             video.addEventListener("play", handleVideoEvent);
