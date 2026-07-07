@@ -51,7 +51,8 @@ export default class WebSocketSession extends AbstractSession {
                         type: 'JOIN',
                         roomId: roomCode,
                         clientId: this.myId,
-                        nickname: this.name
+                        nickname: this.name,
+                        hasVideo: !!(typeof window !== 'undefined' && window.location.search.includes('code=')) ? false : true // default guest joins via invite link as viewer (no local video) unless chosen later
                     }));
                     this.connected = true;
                     this.startHeartbeat();
@@ -71,7 +72,8 @@ export default class WebSocketSession extends AbstractSession {
                                 senderId: data.senderId,
                                 payload: {
                                     type: 'JOIN',
-                                    nickname: data.nickname
+                                    nickname: data.nickname,
+                                    hasVideo: data.hasVideo
                                 }
                             });
                         } else if (data.type === 'PEER_LEAVE') {

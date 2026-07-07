@@ -178,7 +178,7 @@ export default function Theater({ sessionConfig }: TheaterProps) {
                         participantsSetRef.current.add(senderId);
                         participantsNamesMapRef.current.set(senderId, nickname);
                         // Record whether this viewer has a local video file
-                        viewerHasVideoMapRef.current.set(senderId, !!envelope.payload.hasVideo);
+                        viewerHasVideoMapRef.current.set(senderId, envelope.payload.hasVideo === undefined ? false : !!envelope.payload.hasVideo);
                         
                         const list = [sessionConfig.nickname, ...Array.from(participantsNamesMapRef.current.values())];
                         setParticipants(list);

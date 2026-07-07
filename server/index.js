@@ -41,7 +41,8 @@ wss.on('connection', (ws) => {
                     broadcastToRoom(roomId, ws, {
                         type: 'PEER_JOIN',
                         senderId: clientId,
-                        nickname: nickname
+                        nickname: nickname,
+                        hasVideo: data.hasVideo
                     });
                     
                     // Send list of existing peers in the room to the new joiner
