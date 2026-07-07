@@ -1,3 +1,13 @@
+---
+title: SyncPlay Backend
+emoji: 🍿
+colorFrom: red
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Peer Party
 
 Create a watch party for locally stored videos\*.
