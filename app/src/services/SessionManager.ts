@@ -1,15 +1,15 @@
 import { AbstractSession } from ".";
-import WebSocketSession from "./WebSocketSession.ts";
+import PeerSession from "./PeerSession.ts";
 
 export default class SessionManager {
-    static defaultImpl = 'WEBSOCKET';
+    static defaultImpl = 'PEERJS';
 
     static create({name}: {name: string}): AbstractSession {
         let instance;
 
         switch(SessionManager.defaultImpl) {
-            case 'WEBSOCKET':
-                instance = new WebSocketSession();
+            case 'PEERJS':
+                instance = new PeerSession();
                 break;
             default:
                 throw new Error(`Unknown session type '${SessionManager.defaultImpl}'`);
