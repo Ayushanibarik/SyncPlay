@@ -172,6 +172,7 @@ export default function Theater({ sessionConfig }: TheaterProps) {
                 session.onEnvelope = (envelope: Envelope) => {
                     const { type, nickname, paused, position, roomName: rName, participants: parts, msg } = envelope.payload;
                     const senderId = envelope.senderId || "";
+                    console.log("[DEBUG][onEnvelope] senderId:", senderId, "type:", type, "payload:", envelope.payload);
 
                     if (type === "JOIN" && sessionConfig.role === Role.OWNER) {
                         // Register participant
@@ -238,11 +239,14 @@ export default function Theater({ sessionConfig }: TheaterProps) {
 
                         // Sync local video only if we have a local file loaded
                         if (localVideoInfo && localVideoInfo.fileObj && videoRef.current) {
+                            console.log("[DEBUG][onEnvelope][STATE] programmatic update. paused:", paused, "position:", position);
                             isSyncingRef.current = true;
                             videoRef.current.currentTime = position;
                             if (paused) {
+                                console.log("[DEBUG][video.pause()] called (STATE)");
                                 videoRef.current.pause();
                             } else {
+                                console.log("[DEBUG][video.play()] called (STATE)");
                                 videoRef.current.play().catch(() => {});
                             }
                             setTimeout(() => { isSyncingRef.current = false; }, 300);
@@ -255,11 +259,14 @@ export default function Theater({ sessionConfig }: TheaterProps) {
 
                         // Sync local video state from Host
                         if (videoRef.current) {
+                            console.log("[DEBUG][onEnvelope][SYNC] programmatic update. paused:", paused, "position:", position);
                             isSyncingRef.current = true;
                             videoRef.current.currentTime = position;
                             if (paused) {
+                                console.log("[DEBUG][video.pause()] called (SYNC)");
                                 videoRef.current.pause();
                             } else {
+                                console.log("[DEBUG][video.play()] called (SYNC)");
                                 videoRef.current.play().catch(() => {});
                             }
                             setTimeout(() => { isSyncingRef.current = false; }, 300);
@@ -274,11 +281,14 @@ export default function Theater({ sessionConfig }: TheaterProps) {
 
                         // Viewer requested play/pause/seek state change
                         if (videoRef.current) {
+                            console.log("[DEBUG][onEnvelope][STATE_CHANGE] programmatic update. paused:", paused, "position:", position);
                             isSyncingRef.current = true;
                             videoRef.current.currentTime = position;
                             if (paused) {
+                                console.log("[DEBUG][video.pause()] called (STATE_CHANGE)");
                                 videoRef.current.pause();
                             } else {
+                                console.log("[DEBUG][video.play()] called (STATE_CHANGE)");
                                 videoRef.current.play().catch(() => {});
                             }
                             setTimeout(() => { isSyncingRef.current = false; }, 300);
@@ -361,7 +371,11 @@ export default function Theater({ sessionConfig }: TheaterProps) {
 
     // Broadcast local video play/pause/seek events to peers
     const handleVideoEvent = () => {
-        if (!videoRef.current || !sessionRef.current) return;
+        if (!videoRef.current || !sessionRef.current) {
+            console.log("[DEBUG][handleVideoEvent] early return (no video or session)");
+            return;
+        }
+        console.log("[DEBUG][handleVideoEvent] event fired. isSyncingRef:", isSyncingRef.current, "paused:", videoRef.current.paused, "currentTime:", videoRef.current.currentTime);
         if (isSyncingRef.current) return;
 
         const paused = videoRef.current.paused;

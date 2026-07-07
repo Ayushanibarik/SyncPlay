@@ -62,6 +62,7 @@ export default class WebSocketSession extends AbstractSession {
                 ws.onmessage = (event) => {
                     try {
                         const data = JSON.parse(event.data);
+                        console.log("[DEBUG][WebSocket Receive]", data.type, data);
                         
                         if (data.type === 'PONG') {
                             return; // Heartbeat response, ignore
@@ -163,6 +164,7 @@ export default class WebSocketSession extends AbstractSession {
         }
 
         const payload = envelope.payload;
+        console.log("[DEBUG][WebSocket Emit] payload type:", payload.type, "destinationId:", destinationId, "payload:", payload);
         
         if (payload.type === 'JOIN') {
             // Already handled in connect() by JOIN frame
