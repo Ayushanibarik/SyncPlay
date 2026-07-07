@@ -423,6 +423,26 @@ body {
   outline: none;
 }
 
+.no-video-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  text-align: center;
+  padding: 2rem;
+}
+.no-video-placeholder .placeholder-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+.no-video-placeholder .placeholder-text {
+  font-size: 1.1rem;
+  max-width: 400px;
+  line-height: 1.5;
+  margin: 0 0 1.5rem 0;
+}
+
 /* Sidebar Pane */
 .sidebar-pane {
   display: flex;

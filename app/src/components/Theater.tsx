@@ -9,10 +9,10 @@ interface TheaterProps {
         nickname: string;
         roomCode: string;
         roomName: string;
-        videoInfo: {
+        videoInfo?: {
             fileObj: string;
             name: string;
-        };
+        } | null;
     };
 }
 
@@ -26,6 +26,17 @@ interface ChatMessage {
 
 export default function Theater({ sessionConfig }: TheaterProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
+    const [localVideoInfo, setLocalVideoInfo] = useState(sessionConfig.videoInfo);
+
+    const handleLocalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (files && files.length === 1) {
+            const file = files[0];
+            const { name } = file;
+            const fileObj = URL.createObjectURL(file);
+            setLocalVideoInfo({ fileObj, name });
+        }
+    };
     const sessionRef = useRef<AbstractSession | null>(null);
     const participantsSetRef = useRef<Set<string>>(new Set());
     const participantsNamesMapRef = useRef<Map<string, string>>(new Map());
@@ -258,7 +269,7 @@ export default function Theater({ sessionConfig }: TheaterProps) {
                 video.removeEventListener("seeked", handleVideoEvent);
             }
         };
-    }, [roomCode]);
+    }, [roomCode, localVideoInfo]);
 
     const addSystemMessage = (text: string) => {
         setMessages(prev => [
@@ -328,7 +339,27 @@ export default function Theater({ sessionConfig }: TheaterProps) {
         <div className="theater-container">
             {/* Left Column: Video Player */}
             <div className="video-pane">
-                <video ref={videoRef} src={sessionConfig.videoInfo.fileObj} controls></video>
+                {localVideoInfo ? (
+                    <video ref={videoRef} src={localVideoInfo.fileObj} controls></video>
+                ) : (
+                    <div className="no-video-placeholder">
+                        <span className="placeholder-icon">🎬</span>
+                        <p className="placeholder-text">No video file selected. You are currently in chat-only mode.</p>
+                        <div className="file-upload-wrapper" style={{ marginTop: "1rem" }}>
+                            <input 
+                                id="theater-video-select" 
+                                type="file" 
+                                accept="video/*" 
+                                onChange={handleLocalFileChange} 
+                                className="hidden-file-input"
+                            />
+                            <label htmlFor="theater-video-select" className="file-upload-trigger">
+                                <span className="upload-icon">🎬</span>
+                                <span className="upload-btn-text">Select Local Video</span>
+                            </label>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Right Column: Chat & Session Info Sidebar */}

@@ -56,7 +56,7 @@ export default function Login({setSessionConfig}: any) {
     const canStart = !!(
         info.role &&
         info.nickname &&
-        formData.videoInfo &&
+        (info.role === Role.OWNER ? !!formData.videoInfo : true) &&
         (info.role === Role.OWNER || info.roomCode)
     );
 
