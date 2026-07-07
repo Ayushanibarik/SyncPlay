@@ -367,6 +367,10 @@ export default function Theater({ sessionConfig }: TheaterProps) {
                 }, viewerId);
             });
         } else {
+            // Only send state changes if we are playing our own local media file.
+            // If we are in WebRTC streaming mode (localVideoInfo is null), ignore local events.
+            if (!localVideoInfo) return;
+
             // Send state change to Host
             sessionRef.current.send({
                 payload: {
