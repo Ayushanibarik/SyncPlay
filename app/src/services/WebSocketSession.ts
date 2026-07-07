@@ -29,11 +29,11 @@ export default class WebSocketSession extends AbstractSession {
         this.roomCode = roomCode;
 
         // If running locally, check if local server is active, otherwise check url query parameter, env variable, and fallback
-        const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+        const isLocal = typeof window === 'undefined' || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
         
-        const params = new URLSearchParams(window.location.search);
+        const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
         const queryServer = params.get('server');
-        const envServer = import.meta.env.VITE_SIGNALING_SERVER;
+        const envServer = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_SIGNALING_SERVER : undefined;
         
         const url = isLocal 
             ? 'ws://localhost:8080' 
@@ -101,7 +101,7 @@ export default class WebSocketSession extends AbstractSession {
                             });
                         } else if (data.type === 'SIGNAL') {
                             const innerPayload = data.payload;
-                            if (innerPayload.type === 'STATE') {
+                            if (innerPayload && innerPayload.type === 'STATE') {
                                 this.onEnvelope({
                                     senderId: data.senderId,
                                     payload: {
@@ -112,7 +112,7 @@ export default class WebSocketSession extends AbstractSession {
                                         participants: innerPayload.participants
                                     }
                                 });
-                            } else if (innerPayload.type === 'STATE_CHANGE') {
+                            } else if (innerPayload && innerPayload.type === 'STATE_CHANGE') {
                                 this.onEnvelope({
                                     senderId: data.senderId,
                                     payload: {
@@ -120,6 +120,11 @@ export default class WebSocketSession extends AbstractSession {
                                         paused: innerPayload.paused,
                                         position: innerPayload.position
                                     }
+                                });
+                            } else {
+                                this.onEnvelope({
+                                    senderId: data.senderId,
+                                    payload: innerPayload
                                 });
                             }
                         }
@@ -197,7 +202,14 @@ export default class WebSocketSession extends AbstractSession {
             return true;
         }
 
-        return false;
+        // Fallback for custom/untyped payloads (useful for tests)
+        this.ws.send(JSON.stringify({
+            type: 'SIGNAL',
+            roomId: this.roomCode,
+            destinationId,
+            payload: payload
+        }));
+        return true;
     }
 
     destroy() {

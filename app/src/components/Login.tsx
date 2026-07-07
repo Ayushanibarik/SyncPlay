@@ -53,7 +53,12 @@ export default function Login({setSessionConfig}: any) {
 
     // WIP
     const info = formData;
-    const canStart = info.role && info.nickname && formData.videoInfo;
+    const canStart = !!(
+        info.role &&
+        info.nickname &&
+        formData.videoInfo &&
+        (info.role === Role.OWNER || info.roomCode)
+    );
 
     function handleSubmit(e: any) {
         e.preventDefault();
@@ -114,6 +119,7 @@ export default function Login({setSessionConfig}: any) {
                     name="role"
                     radios={rolesOptions}
                     onSelected={handleRoleSelect}
+                    selectedValue={formData.role}
                 />
             </div>
 

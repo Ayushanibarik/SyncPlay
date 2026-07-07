@@ -1,4 +1,3 @@
-import { useState } from 'react';
 
 /**
  * It is a **radio** input presented as a **card**.
@@ -22,16 +21,9 @@ import { useState } from 'react';
  * />
  *
  */
-export default function RadioCardGroup({radios, onSelected}: RadioCardGroupProps) {
-    const [selectedRadio, setSelectedRadio] = useState<RadioCardOption | null>(null);
-
-    function handleSelected(x: RadioCardOption) {
-        setSelectedRadio(x);
-        onSelected(x);
-    }
-
+export default function RadioCardGroup({radios, onSelected, selectedValue}: RadioCardGroupProps) {
     const els = radios.map(x => {
-        const isChecked = selectedRadio === x;
+        const isChecked = selectedValue === x.value;
 
         return (
             <label className="radio-card" key={x.value}>
@@ -42,7 +34,7 @@ export default function RadioCardGroup({radios, onSelected}: RadioCardGroupProps
                     <input type="radio"
                         value={x.value}
                         checked={isChecked}
-                        onChange={() => handleSelected(x) }
+                        onChange={() => onSelected(x) }
                         />
                 </span>
             </label>
@@ -59,11 +51,11 @@ export default function RadioCardGroup({radios, onSelected}: RadioCardGroupProps
 export interface RadioCardOption {
     content: any,
     value: any,
-    selected?: boolean // TODO support default value
 }
 
 interface RadioCardGroupProps {
     name: string;
-    radios: RadioCardOption[]
-    onSelected: (x: RadioCardOption) => void
+    radios: RadioCardOption[];
+    onSelected: (x: RadioCardOption) => void;
+    selectedValue?: any;
 }

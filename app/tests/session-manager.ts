@@ -26,6 +26,9 @@ test('SessionManager', async t => {
     const testPayload = 'hi';
 
     aliceConn.onEnvelope = (x: Envelope) => {
+        if (x.payload && typeof x.payload === 'object' && x.payload.type === 'JOIN') {
+            return;
+        }
         received.resolve(x);
         t.ok(true, 'receive an envelope');
         t.equal(x.payload, testPayload, 'the correct payload');
