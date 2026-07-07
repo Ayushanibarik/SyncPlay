@@ -117,6 +117,7 @@ export default function Theater({ sessionConfig }: TheaterProps) {
     const participantsSetRef = useRef<Set<string>>(new Set());
     const participantsNamesMapRef = useRef<Map<string, string>>(new Map());
     const isSyncingRef = useRef<boolean>(false);
+    const lastSyncedStateRef = useRef<{ paused: boolean; position: number }>({ paused: true, position: 0 });
 
     const [roomCode, setRoomCode] = useState<string>(sessionConfig.roomCode);
     const [roomName, setRoomName] = useState<string>(sessionConfig.roomName);
@@ -239,14 +240,13 @@ export default function Theater({ sessionConfig }: TheaterProps) {
 
                         // Sync local video only if we have a local file loaded
                         if (localVideoInfo && localVideoInfo.fileObj && videoRef.current) {
-                            console.log("[DEBUG][onEnvelope][STATE] programmatic update. paused:", paused, "position:", position);
+                            console.log("[onEnvelope][STATE] programmatic update. paused:", paused, "position:", position);
+                            lastSyncedStateRef.current = { paused, position };
                             isSyncingRef.current = true;
                             videoRef.current.currentTime = position;
                             if (paused) {
-                                console.log("[DEBUG][video.pause()] called (STATE)");
                                 videoRef.current.pause();
                             } else {
-                                console.log("[DEBUG][video.play()] called (STATE)");
                                 videoRef.current.play().catch(() => {});
                             }
                             setTimeout(() => { isSyncingRef.current = false; }, 300);
@@ -259,14 +259,13 @@ export default function Theater({ sessionConfig }: TheaterProps) {
 
                         // Sync local video state from Host
                         if (videoRef.current) {
-                            console.log("[DEBUG][onEnvelope][SYNC] programmatic update. paused:", paused, "position:", position);
+                            console.log("[onEnvelope][SYNC] programmatic update. paused:", paused, "position:", position);
+                            lastSyncedStateRef.current = { paused, position };
                             isSyncingRef.current = true;
                             videoRef.current.currentTime = position;
                             if (paused) {
-                                console.log("[DEBUG][video.pause()] called (SYNC)");
                                 videoRef.current.pause();
                             } else {
-                                console.log("[DEBUG][video.play()] called (SYNC)");
                                 videoRef.current.play().catch(() => {});
                             }
                             setTimeout(() => { isSyncingRef.current = false; }, 300);
@@ -281,14 +280,13 @@ export default function Theater({ sessionConfig }: TheaterProps) {
 
                         // Viewer requested play/pause/seek state change
                         if (videoRef.current) {
-                            console.log("[DEBUG][onEnvelope][STATE_CHANGE] programmatic update. paused:", paused, "position:", position);
+                            console.log("[onEnvelope][STATE_CHANGE] programmatic update. paused:", paused, "position:", position);
+                            lastSyncedStateRef.current = { paused, position };
                             isSyncingRef.current = true;
                             videoRef.current.currentTime = position;
                             if (paused) {
-                                console.log("[DEBUG][video.pause()] called (STATE_CHANGE)");
                                 videoRef.current.pause();
                             } else {
-                                console.log("[DEBUG][video.play()] called (STATE_CHANGE)");
                                 videoRef.current.play().catch(() => {});
                             }
                             setTimeout(() => { isSyncingRef.current = false; }, 300);
@@ -372,14 +370,20 @@ export default function Theater({ sessionConfig }: TheaterProps) {
     // Broadcast local video play/pause/seek events to peers
     const handleVideoEvent = () => {
         if (!videoRef.current || !sessionRef.current) {
-            console.log("[DEBUG][handleVideoEvent] early return (no video or session)");
             return;
         }
-        console.log("[DEBUG][handleVideoEvent] event fired. isSyncingRef:", isSyncingRef.current, "paused:", videoRef.current.paused, "currentTime:", videoRef.current.currentTime);
         if (isSyncingRef.current) return;
 
         const paused = videoRef.current.paused;
         const position = videoRef.current.currentTime;
+
+        // Discard events that match the last programmatically synced state to avoid feedback loops
+        if (paused === lastSyncedStateRef.current.paused && Math.abs(position - lastSyncedStateRef.current.position) < 1.0) {
+            return;
+        }
+
+        // Update last synced state to match the user's manual action
+        lastSyncedStateRef.current = { paused, position };
 
         if (sessionConfig.role === Role.OWNER) {
             // Broadcast state to all viewers
